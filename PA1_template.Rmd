@@ -1,25 +1,92 @@
 ---
-title: "Reproducible Research: Peer Assessment 1"
-output: 
-  html_document:
-    keep_md: true
+title: "RepData_PeerAssessment1"
+author: "Corbin Charpentier"
+date: "4/20/2018"
+output: html_document
 ---
 
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+library(dplyr)
+library(ggplot2)
+```
 
 ## Loading and preprocessing the data
 
-
+```{r data}
+data <- read.csv("activity.csv")
+completeData <- data[complete.cases(data), ]
+```
 
 ## What is mean total number of steps taken per day?
+```{r daily steps, message=F, warning=F}
+dailySteps <- group_by(completeData, date) %>% summarize(steps=sum(steps))
+qplot(dailySteps$steps, xlab="Number of Steps", ylab="Frequency", binwidth=1000)
+```
 
-
+### Mean steps per day
+```{r mean steps}
+mean <- mean(dailySteps$steps, na.rm=T)
+median <- median(dailySteps$steps, na.rm=T)
+```
+The average number of daily steps is `r mean` and the median is `r median`. 
 
 ## What is the average daily activity pattern?
+### Graph daily interval against average steps for each interval
+```{r interval steps}
+avgPerInterval <- group_by(completeData, interval) %>% summarize(steps=mean(steps))
+with(avgPerInterval, plot(interval, steps, type="l", xlab="Interval", ylab="Steps"))
+```
 
+### Interval with most steps:
+```{r biggest interval}
+maxRow <- avgPerInterval[which.max(avgPerInterval$steps), ]
 
+```
+Greatest steps (`r maxRow$steps`) at interval `r maxRow$interval`.
 
 ## Imputing missing values
+### Find number of rows with NAs
+```{r missing values}
+NROW(data) - NROW(completeData)
+```
 
+### Fill in missing values with median of dataset. Note: only "steps" column has missing values.
+```{r fill}
+filledData <- data
+filledData$steps[is.na(filledData$steps)] <- as.integer(mean(filledData$steps, na.rm=T))
+```
 
+```{r steps per day}
+filledDailySteps <- group_by(filledData, date) %>% summarize(steps=sum(steps))
+qplot(filledDailySteps$steps, xlab="Number of Steps", ylab="Frequency", binwidth=1000)
+```
+
+```{r filled mean and median}
+mean <- mean(filledDailySteps$steps, na.rm=T)
+median <- median(filledDailySteps$steps, na.rm=T)
+```
+The average number of daily (with filled NAs) steps is `r mean` and the median is `r median`. 
+
+### What is the impact of imputing missing data on the estimates of the total daily number of steps?
+The mean and median went slightly down compared to the set with NAs. This implies the data is slight top heavy.
 
 ## Are there differences in activity patterns between weekdays and weekends?
+```{r weekdays and weekends}
+completeData$date <- as.Date(completeData$date, "%Y-%m-%d")
+library(timeDate)
+completeData$weekday <- isWeekday(completeData$date)
+weekdaySteps <- data
+
+avgIntervalWeekday <- filter(completeData, weekday == T) %>%
+    group_by(interval) %>% 
+    summarize(steps=mean(steps))
+avgIntervalWeekend <- filter(completeData, weekday == F) %>%
+    group_by(interval) %>% 
+    summarize(steps=mean(steps))
+par(mfrow=c(2,1))
+with(avgIntervalWeekday, plot(interval, steps, type="l", xlab="Interbal", ylab="Steps"))
+with(avgIntervalWeekend, plot(interval, steps, type="l", xlab="Interval", ylab="Steps"))
+
+```
+
